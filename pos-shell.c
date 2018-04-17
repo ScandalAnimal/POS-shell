@@ -22,10 +22,13 @@ typedef struct t_routine_arg {
  	pthread_cond_t mutex_condition;
 } t_routine_arg;
 
-typedef struct t_parsed_input {
-	int argc;
-	char *argv[];
-} t_parsed_input;
+typedef struct t_program_arg {
+	char *input_file;
+	char *output_file;
+	bool background;
+	char *input[INPUT_SIZE];
+	int counter;
+} t_program_arg;
 
 void send_signal(t_routine_arg *arg) {
 	pthread_mutex_lock(&(arg->mutex));
@@ -113,12 +116,12 @@ void *start_execute_routine(void *arg) {
 
 	t_routine_arg *routine_arg = (t_routine_arg *)arg;	
 	
-	char token_buffer[1024];
-	char *tokens[64] = {NULL};
-	for (unsigned int i = 0; i < 1024; i++) {
+	char token_buffer[2*INPUT_SIZE];
+	char *tokens[INPUT_SIZE] = {NULL};
+	for (unsigned int i = 0; i < (2*INPUT_SIZE); i++) {
 		token_buffer[i] = '\0';
 	}
-	for (unsigned int i = 0; i < 64; i++) {
+	for (unsigned int i = 0; i < INPUT_SIZE; i++) {
 		tokens[i] = NULL;
 	}
 
@@ -132,9 +135,50 @@ void *start_execute_routine(void *arg) {
 
 		parse_input(routine_arg->input, token_buffer, tokens);
 
-		for (unsigned int i = 0; i < 64; i++) {
+		for (unsigned int i = 0; i < INPUT_SIZE; i++) {
 			printf("|:%s", tokens[i]);
 		}
+
+		t_program_arg program_arg;
+		program_arg.background = false;
+		program_arg.counter = 0;
+		memset(program_arg.input, 0, INPUT_SIZE);
+		
+		for (unsigned int i = 0; i < INPUT_SIZE && tokens[i] != NULL; i++) {
+			if (strcmp(tokens[i], "<") == 0) {
+				i++;
+				if (tokens[i] == NULL) {
+					return NULL; 
+				}
+				program_arg.input_file = tokens[i];
+			}
+			else if (strcmp(tokens[i], ">" ) == 0) {
+				i++;
+				if (tokens[i] == NULL) { 
+					return NULL; 
+				}
+				program_arg.output_file = tokens[i];
+			}
+			else if (strcmp(tokens[i], "&") == 0) {
+				program_arg.background = true;
+			}
+			else{
+				program_arg.input[program_arg.counter] = tokens[i];
+				program_arg.counter++;
+			}
+		}
+
+		printf("Input: %s\n", program_arg.input_file);
+		printf("Output: %s\n", program_arg.output_file);
+		printf("Background: %s\n", program_arg.background ? "true" : "false");
+		for (unsigned int i = 0; i < INPUT_SIZE; i++) {
+			printf("|:%s", program_arg.input[i]);
+		}
+		
+		if (program_arg.input[0]) {
+			// clexec(cmd, inFile, outFile, isBg);
+		}
+
 		// int pid = fork();
 
 		// if (pid > 0) {
